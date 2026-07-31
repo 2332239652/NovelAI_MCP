@@ -29,7 +29,7 @@
 
 ```bash
 # 克隆项目
-git clone https://github.com/SGSxingchen/NovelAI_MCP.git
+git clone https://github.com/2332239652/NovelAI_MCP.git
 cd NovelAI_MCP
 
 # 安装依赖
@@ -166,7 +166,7 @@ npm run start:sse
 
 ```bash
 # 克隆仓库
-git clone https://github.com/SGSxingchen/NovelAI_MCP.git
+git clone https://github.com/2332239652/NovelAI_MCP.git
 cd NovelAI_MCP
 
 # 安装依赖
@@ -223,7 +223,7 @@ docker run -d \
 - [NovelAI 官网](https://novelai.net/)
 - [NovelAI API 文档](https://api.novelai.net/docs/)
 - [MCP 官方文档](https://modelcontextprotocol.io/)
-- [问题反馈](https://github.com/SGSxingchen/NovelAI_MCP/issues)
+- [问题反馈](https://github.com/2332239652/NovelAI_MCP/issues)
 
 ---
 

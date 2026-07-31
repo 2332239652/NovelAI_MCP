@@ -15,7 +15,7 @@
 
 1. **Fork 并克隆项目**
    ```bash
-   git clone https://github.com/SGSxingchen/NovelAI_MCP.git
+   git clone https://github.com/2332239652/NovelAI_MCP.git
    cd NovelAI_MCP
    ```
 

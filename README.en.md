@@ -32,7 +32,7 @@ English | [简体中文](./README.md)
 
 ```bash
 # Clone repository
-git clone https://github.com/SGSxingchen/NovelAI_MCP.git
+git clone https://github.com/2332239652/NovelAI_MCP.git
 cd NovelAI_MCP
 
 # Install dependencies
@@ -204,7 +204,7 @@ See [Quick Reference](./docs/QUICK-REFERENCE.md) for complete parameter list.
 
 ```bash
 # Clone repository
-git clone https://github.com/SGSxingchen/NovelAI_MCP.git
+git clone https://github.com/2332239652/NovelAI_MCP.git
 cd NovelAI_MCP
 
 # Install dependencies
@@ -255,7 +255,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) for deta
 - [NovelAI Official](https://novelai.net/)
 - [NovelAI API Docs](https://api.novelai.net/docs/)
 - [MCP Documentation](https://modelcontextprotocol.io/)
-- [Issue Tracker](https://github.com/SGSxingchen/NovelAI_MCP/issues)
+- [Issue Tracker](https://github.com/2332239652/NovelAI_MCP/issues)
 
 ---
 

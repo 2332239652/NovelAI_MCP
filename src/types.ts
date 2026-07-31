@@ -23,6 +23,14 @@ export type NoiseSchedule =
   | 'exponential'
   | 'polyexponential';
 
+export interface PreciseReference {
+  image: string;            // Base64 encoded reference image
+  mode: 'character_style' | 'character' | 'style';
+  strength: number;         // 0-1
+  fidelity: number;         // 0-1
+  enabled: boolean;
+}
+
 export type ImageFormat = 'png' | 'jpg' | 'webp';
 export type StreamType = 'msgpack';
 
@@ -118,10 +126,14 @@ export interface ImageGenerationParams {
   controlnet_strength?: number;   // 0-2
 
   // VibeTransfer
-  reference_image_multiple?: string[];  // Base64 encoded reference images
-  reference_information_extracted?: number[];  // Strength for each reference: 0-1
-  reference_strength?: number;  // Overall strength: 0-1
+  reference_image_multiple?: string[];
+  reference_strength_multiple?: number[];
+  reference_information_extracted_multiple?: number[];
+  reference_strength?: number;
   normalize_reference_strength_multiple?: boolean;
+
+  // Precise Reference
+  precise_references?: PreciseReference[];
 }
 
 // Internal API request structure for V4+

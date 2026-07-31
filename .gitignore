@@ -44,6 +44,10 @@ coverage/
 outputs/
 temp/
 
+# Local launcher scripts (may contain machine-specific paths)
+start_*.bat
+start_*.sh
+
 # Debug
 debug_*.json
 response-*.bin

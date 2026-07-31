@@ -8,17 +8,18 @@ import type {
 } from './types.js';
 
 export class NovelAIClient {
-  // 1. 必须显示声明类属性
   private apiKey: string;
   private baseUrl: string;
-  private agent: any; // 这里的 agent 类型比较复杂，用 any 兼容 http/https 代理
+  private proxyUrl: string;
+  private agent: any;
 
   constructor(apiKey: string) {
     if (!apiKey) {
       throw new Error('NovelAI API key is required');
     }
     this.apiKey = apiKey;
-    this.baseUrl = 'https://image.novelai.net'; 
+    this.baseUrl = 'https://image.novelai.net';
+    this.proxyUrl = 'https://api.mmw.ink/nai';
 
     const proxy = process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
     if (proxy) {
@@ -92,6 +93,14 @@ export class NovelAIClient {
       inpaintImg2ImgStrength = 1,
       controlnet_strength = 1,
       normalize_reference_strength_multiple = true,
+      reference_image_multiple,
+      reference_strength_multiple,
+      reference_information_extracted_multiple,
+      precise_references,
+      image,
+      strength,
+      noise,
+      mask,
       ...rest
     } = params;
 
@@ -154,6 +163,37 @@ export class NovelAIClient {
     // 合并剩余参数
     Object.assign(payload.parameters, rest);
 
+    // Vibe Transfer + Precise Reference 放入 parameters 内部
+    if (reference_image_multiple) {
+      payload.parameters.reference_image_multiple = reference_image_multiple;
+      payload.parameters.reference_strength_multiple = reference_strength_multiple;
+      payload.parameters.reference_information_extracted_multiple = reference_information_extracted_multiple;
+      payload.parameters.normalize_reference_strength_multiple = normalize_reference_strength_multiple;
+    }
+    if (precise_references) {
+      payload.parameters.precise_references = precise_references;
+    }
+    // img2img
+    if (image) {
+      payload.parameters.image = image;
+      if (strength !== undefined) payload.parameters.strength = strength;
+      if (noise !== undefined) payload.parameters.noise = noise;
+    }
+    if (mask) {
+      payload.parameters.mask = mask;
+    }
+
+    // Debug: log payload structure (omit large base64 fields)
+    const hasRefImg = !!payload.reference_image_multiple;
+    const hasImg = !!payload.image;
+    console.error('📤 Payload:', JSON.stringify({ 
+      input: payload.input, model: payload.model, action: payload.action, 
+      paramKeys: Object.keys(payload.parameters).filter(k => k !== 'characterPrompts' && k !== 'v4_prompt' && k !== 'v4_negative_prompt'),
+      hasRefImg: hasRefImg ? payload.reference_image_multiple.length : 0, 
+      refStrength: payload.reference_strength, 
+      hasImg: hasImg 
+    }));
+
     try {
       console.error(`🚀 Requesting NovelAI (ZIP Mode)... Seed: ${generatedSeed}`);
       
@@ -184,6 +224,131 @@ export class NovelAIClient {
 
     } catch (error) {
       console.error('💥 Client Error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 查询 Anlas 点数余额
+   */
+  async checkAnlasBalance(): Promise<number> {
+    try {
+      const fetchOptions: any = {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Origin': 'https://novelai.net',
+          'Referer': 'https://novelai.net/',
+        },
+      };
+      if (this.agent) fetchOptions.agent = this.agent;
+
+      const response = await fetch(`${this.proxyUrl}/v1/anlas`, fetchOptions);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      const anlas = Number(data.anlas);
+      if (!Number.isFinite(anlas) || anlas <= 0) throw new Error('Invalid anlas value');
+      return anlas;
+    } catch (error) {
+      console.error('💥 Anlas Check Error:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 通过镜像站 API 生成图片，支持 precise_references
+   */
+  async generateImageViaProxy(params: ImageGenerationParams): Promise<Buffer> {
+    const {
+      prompt, model = 'nai-diffusion-4-5-full', negative_prompt = '',
+      width = 832, height = 1216, steps = 28, scale = 5,
+      sampler = 'k_euler_ancestral', seed,
+      n_samples = 1, noise_schedule = 'karras',
+      qualityToggle = true, ucPreset = 0, cfg_rescale = 0,
+      image_format = 'png',
+      precise_references,
+      characterPrompts = [],
+    } = params;
+
+    const generatedSeed = seed ?? Math.floor(Math.random() * 4294967295);
+
+    const nai: any = {
+      n_samples, steps, scale, sampler, noise_schedule,
+      ucPreset, qualityToggle, cfg_rescale,
+      seed: generatedSeed,
+      negative_prompt,
+    };
+
+    if (precise_references) {
+      nai.precise_references = precise_references;
+    }
+
+    const [w, h] = [width, height];
+    const sizeStr = `${w}x${h}`;
+
+    const payload: any = {
+      prompt,
+      model,
+      size: sizeStr,
+      width: w,
+      height: h,
+      negative_prompt,
+      sampler,
+      steps,
+      scale,
+      seed: generatedSeed,
+      response_format: 'b64_json',
+      nai,
+    };
+
+    if (characterPrompts.length > 0) {
+      nai.characters = characterPrompts.map((char: any) => ({
+        prompt: char.prompt,
+        uc: char.uc || '',
+        center: char.center,
+        enabled: true,
+      }));
+      nai.use_coords = characterPrompts.length > 0;
+      nai.use_order = true;
+    }
+
+    try {
+      console.error(`🚀 Requesting via Proxy (Precise Ref Mode)... Seed: ${generatedSeed}`);
+
+      const fetchOptions: any = {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      };
+      if (this.agent) fetchOptions.agent = this.agent;
+
+      const response = await fetch(`${this.proxyUrl}/v1/images/generations`, fetchOptions);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Proxy API Error (${response.status}): ${errorText}`);
+      }
+
+      const data: any = await response.json();
+      const images = Array.isArray(data.data) ? data.data : [];
+      if (!images.length || !images[0].b64_json) {
+        throw new Error('No image in proxy response');
+      }
+      const buffer = Buffer.from(images[0].b64_json, 'base64');
+      // 验证是有效的 PNG
+      if (buffer[0] !== 0x89 || buffer[1] !== 0x50) {
+        throw new Error('Proxy returned invalid image format');
+      }
+      return buffer;
+    } catch (error) {
+      console.error('💥 Proxy Client Error:', error);
       throw error;
     }
   }

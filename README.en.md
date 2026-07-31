@@ -1,5 +1,7 @@
 # NovelAI MCP Server
 
+> 📌 **This repository is a fork/derivative of [SGSxingchen/NovelAI_MCP](https://github.com/SGSxingchen/NovelAI_MCP)**, preserving the original author's full commit history. Thanks to the original author for their work.
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

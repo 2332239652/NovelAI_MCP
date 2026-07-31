@@ -1,5 +1,7 @@
 # NovelAI MCP Server
 
+> 📌 **本仓库基于 [SGSxingchen/NovelAI_MCP](https://github.com/SGSxingchen/NovelAI_MCP) 二次开发**，保留了原作者的完整提交历史，感谢原作者的贡献。
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

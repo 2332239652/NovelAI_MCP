@@ -2,6 +2,8 @@
 
 > 📌 **This repository is a fork/derivative of [SGSxingchen/NovelAI_MCP](https://github.com/SGSxingchen/NovelAI_MCP)**, preserving the original author's full commit history. Thanks to the original author for their work.
 
+> 💡 **Recommended pairing**: Use it with [novelai-assistant](https://github.com/2332239652/novelai-assistant) (a NovelAI prompt-engineering Skill for AI Agents) — the AI automatically translates natural-language descriptions into Danbooru-style prompts, then sends them to this MCP server for image generation.
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

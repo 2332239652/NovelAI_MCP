@@ -2,6 +2,8 @@
 
 > 📌 **本仓库基于 [SGSxingchen/NovelAI_MCP](https://github.com/SGSxingchen/NovelAI_MCP) 二次开发**，保留了原作者的完整提交历史，感谢原作者的贡献。
 
+> 💡 **搭配推荐**：配合 [novelai-assistant](https://github.com/2332239652/novelai-assistant)（面向 AI Agent 的 NovelAI 提示词工程 Skill）使用，AI 可自动将自然语言描述转换为 Danbooru 风格提示词，再交给本 MCP Server 生成图片。
+
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)

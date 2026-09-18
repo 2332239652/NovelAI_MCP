@@ -1,10 +1,19 @@
 /**
  * NovelAI API Types and Interfaces
- * Supporting latest models including NAI Diffusion V4.5 Full
+ * Supporting latest models including NAI Diffusion V5 Full / Curated
  */
 
-// Only V4.5 Full is supported
-export type Model = 'nai-diffusion-4-5-full';
+// Supported image generation models
+// 注意：不存在 nai-diffusion-5-curated-inpainting —— 官方 UI 将 V5 Curated 的局部重绘
+// 路由到 nai-diffusion-4-5-curated-inpainting（该模式最多 6 个角色）。
+export type Model =
+  | 'nai-diffusion-4-5-full'
+  | 'nai-diffusion-4-5-curated'
+  | 'nai-diffusion-5-full'
+  | 'nai-diffusion-5-curated'
+  | 'nai-diffusion-5-full-inpainting'
+  | 'nai-diffusion-4-5-full-inpainting'
+  | 'nai-diffusion-4-5-curated-inpainting';
 
 export type Action = 'generate' | 'img2img' | 'infill';
 
@@ -66,6 +75,8 @@ export interface CharacterPrompt {
   uc: string; // negative prompt for this character
   center: CharacterCenter;
   enabled: boolean;
+  /** AI's Choice：true = 忽略坐标，由模型自由排布（use_coords=false 贡献者） */
+  aic?: boolean;
 }
 
 // User-facing simplified parameters
@@ -103,9 +114,15 @@ export interface ImageGenerationParams {
   ucPreset?: number;        // Negative prompt preset: 0-3
 
   // V4.5+ specific
-  skip_cfg_above_sigma?: number;  // Default: 58 for V4.5
-  prefer_brownian?: boolean;      // Default: true for V4.5
+  skip_cfg_above_sigma?: number | null;  // Variety+：58=开，null/undefined=关（官方默认关）
+  prefer_brownian?: boolean;      // Default: true for V4.5（仅 k_euler_ancestral 时发送）
   image_format?: ImageFormat;     // Output format
+
+  // V5 specific
+  /** 透明背景：true 时追加官方透明标签并设置 straight_alpha + tag_hint_transparent_background */
+  transparent_background?: boolean;
+  /** 透明 alpha 模式：true=Straight（默认），false=Premultiplied；仅 transparent_background=true 时生效 */
+  straight_alpha?: boolean;
 
   // Multi-character support (V4+)
   characterPrompts?: CharacterPrompt[];

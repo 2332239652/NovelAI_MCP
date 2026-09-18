@@ -52,3 +52,10 @@ start_*.sh
 debug_*.json
 response-*.bin
 image-data.bin
+
+# Local backups (snapshot copies made before edits)
+*_backup_*/
+dist_backup_*/
+
+# Generated documents (produced by generate-docx.js)
+*.docx

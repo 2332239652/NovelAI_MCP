@@ -40,7 +40,10 @@ export class NovelAIClient {
           centers: [char.center],
         })),
       },
-      use_coords: characterPrompts.length > 0,
+      // AI's Choice（网页端 AIC）语义：所有角色均为 AIC 时 use_coords=false，
+      // 让模型自由排布；任一角色声明坐标时 use_coords=true。
+      // 参考实现（nekoai handle_use_coords）：仅当存在非 AIC 角色时置 true。
+      use_coords: characterPrompts.some(char => !char.aic),
       use_order: true,
     };
   }
@@ -67,13 +70,13 @@ export class NovelAIClient {
   async generateImage(params: ImageGenerationParams): Promise<Buffer> {
     const {
       prompt,
-      model = 'nai-diffusion-4-5-full',
+      model = process.env.NOVELAI_MODEL || 'nai-diffusion-5-full',
       action = 'generate',
       negative_prompt = '',
       width = 832,
       height = 1216,
-      steps = 28,
-      scale = 6,
+      steps,
+      scale,
       sampler = 'k_euler_ancestral',
       seed,
       n_samples = 1,
@@ -85,8 +88,10 @@ export class NovelAIClient {
       cfg_rescale = 0,
       qualityToggle = true,
       ucPreset = 0,
-      skip_cfg_above_sigma = 58,
+      skip_cfg_above_sigma,
       prefer_brownian = true,
+      transparent_background,
+      straight_alpha,
       image_format = 'png',
       characterPrompts = [],
       add_original_image = true,
@@ -106,7 +111,24 @@ export class NovelAIClient {
 
     if (!prompt) throw new Error('Prompt is required');
 
+    // V5 默认走镜像站代理（镜像站已确认支持 V5）；可用 NOVELAI_USE_PROXY=false 强制走官方
+    const useProxyByEnv = process.env.NOVELAI_USE_PROXY === 'true';
+    const useProxyForV5 = model.startsWith('nai-diffusion-5-') && process.env.NOVELAI_USE_PROXY !== 'false';
+    if (useProxyByEnv || useProxyForV5) {
+      return this.generateImageViaProxy(params);
+    }
+
     const generatedSeed = seed ?? Math.floor(Math.random() * 4294967295);
+    const isV5 = model.startsWith('nai-diffusion-5-');
+    const isV4Plus = isV5 || model.startsWith('nai-diffusion-4');
+    // 官方推荐与社区共识：V5 Guidance≈5（区间 5-6）、Steps 20-28（20-23 最稳）；
+    // V4.5 官方默认 CFG=6、Steps=28
+    const finalSteps = steps ?? (isV5 ? 23 : 28);
+    const finalScale = scale ?? (isV5 ? 5 : 6);
+    // Variety+（skip_cfg_above_sigma）：官方默认关闭（不发送），开启时为 58
+    const varietyValue = typeof skip_cfg_above_sigma === 'number' ? skip_cfg_above_sigma : undefined;
+    // Euler Ancestral 标志位：仅在该采样器下发送（对齐官方抓包）
+    const useEulerAncFlags = sampler === 'k_euler_ancestral';
 
     // 使用 any 来构建 payload，避免复杂的 TypeScript 嵌套类型检查
     // 因为 parameters 里的字段非常多且部分是动态的
@@ -115,32 +137,29 @@ export class NovelAIClient {
       model,
       action,
       parameters: {
-        params_version: 3,
+        params_version: isV5 ? 4 : 3,
         width,
         height,
-        scale,
+        scale: finalScale,
         sampler,
-        steps,
+        steps: finalSteps,
         n_samples,
         ucPreset,
         qualityToggle,
-        autoSmea,
+        uncond_scale: 1,
         dynamic_thresholding,
         controlnet_strength,
         legacy: false,
         add_original_image,
         cfg_rescale,
-        noise_schedule,
+        // V5 官方 UI 强制 karras 噪声调度（无选择器）
+        noise_schedule: isV5 ? 'karras' : noise_schedule,
         legacy_v3_extend: false,
         seed: generatedSeed,
         negative_prompt,
         legacy_uc: false,
-        deliberate_euler_ancestral_bug: false,
-        prefer_brownian,
         image_format,
-        // ❌ 删除 stream 参数，强制使用 ZIP
-        skip_cfg_above_sigma,
-        use_coords: characterPrompts.length > 0,
+        use_coords: characterPrompts.some(c => !c.aic),
         normalize_reference_strength_multiple,
         inpaintImg2ImgStrength,
         characterPrompts: characterPrompts.map(char => ({
@@ -154,14 +173,35 @@ export class NovelAIClient {
       },
     };
 
-    // 手动处理 SMEA 参数
-    if (!autoSmea) {
-      payload.parameters.sm = sm;
-      payload.parameters.sm_dyn = sm_dyn;
+    // SMEA 仅 V3 及以下支持；V4/V4.5 按官方行为恒发 false，V5 不发送（发了可能 500）
+    if (!isV4Plus) {
+      payload.parameters.autoSmea = autoSmea;
+      if (!autoSmea) {
+        payload.parameters.sm = sm;
+        payload.parameters.sm_dyn = sm_dyn;
+      }
+    } else if (!isV5) {
+      payload.parameters.sm = false;
+      payload.parameters.sm_dyn = false;
     }
 
     // 合并剩余参数
     Object.assign(payload.parameters, rest);
+
+    // Euler Ancestral 标志位（对齐官方抓包：仅 k_euler_ancestral 时出现）
+    if (useEulerAncFlags) {
+      payload.parameters.deliberate_euler_ancestral_bug = false;
+      payload.parameters.prefer_brownian = prefer_brownian;
+    }
+    // Variety+（skip_cfg_above_sigma）：仅在显式提供时发送（官方默认关闭）
+    if (varietyValue !== undefined) {
+      payload.parameters.skip_cfg_above_sigma = varietyValue;
+    }
+    // V5 透明背景：straight_alpha + tag_hint_transparent_background → RGBA PNG
+    if (transparent_background) {
+      payload.parameters.straight_alpha = straight_alpha ?? true;
+      payload.parameters.tag_hint_transparent_background = true;
+    }
 
     // Vibe Transfer + Precise Reference 放入 parameters 内部
     if (reference_image_multiple) {
@@ -178,6 +218,8 @@ export class NovelAIClient {
       payload.parameters.image = image;
       if (strength !== undefined) payload.parameters.strength = strength;
       if (noise !== undefined) payload.parameters.noise = noise;
+      payload.parameters.extra_noise_seed = generatedSeed;
+      payload.parameters.color_correct = false;
     }
     if (mask) {
       payload.parameters.mask = mask;
@@ -229,9 +271,19 @@ export class NovelAIClient {
   }
 
   /**
-   * 查询 Anlas 点数余额
+   * 查询账户信息（Anlas + V5 电量）。
+   * 优先官方 https://image.novelai.net/user/subscription：
+   *   - trainingStepsLeft.fixedTrainingStepsLeft + purchasedTrainingSteps = Anlas
+   *   - usage.percent = V5 每周电量剩余百分比（Opus 专属，≈17.3 张/1%，满电约 1730 张）
+   *   - usage.timeUntilNextPercent = 距下一 1% 恢复的秒数
+   * 官方不可达时回退镜像站 /v1/anlas（仅 Anlas）。
    */
-  async checkAnlasBalance(): Promise<number> {
+  async checkAccount(): Promise<{
+    anlas: number;
+    batteryPercent?: number;
+    refillSecondsPerPercent?: number;
+    source: 'official' | 'mirror';
+  }> {
     try {
       const fetchOptions: any = {
         method: 'GET',
@@ -243,48 +295,133 @@ export class NovelAIClient {
       };
       if (this.agent) fetchOptions.agent = this.agent;
 
-      const response = await fetch(`${this.proxyUrl}/v1/anlas`, fetchOptions);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
+      const response = await fetch(`${this.baseUrl}/user/subscription`, fetchOptions);
+      if (response.ok) {
+        const data: any = await response.json();
+        const fixed = Number(data?.trainingStepsLeft?.fixedTrainingStepsLeft ?? 0);
+        const purchased = Number(data?.trainingStepsLeft?.purchasedTrainingSteps ?? 0);
+        const anlas = fixed + purchased;
+        const result: any = { anlas, source: 'official' as const };
+        const usage = data?.usage;
+        if (usage && typeof usage.percent === 'number') {
+          result.batteryPercent = usage.percent;
+          if (typeof usage.timeUntilNextPercent === 'number' && usage.timeUntilNextPercent > 0) {
+            result.refillSecondsPerPercent = usage.timeUntilNextPercent;
+          }
+        }
+        return result;
       }
-
-      const data: any = await response.json();
-      const anlas = Number(data.anlas);
-      if (!Number.isFinite(anlas) || anlas <= 0) throw new Error('Invalid anlas value');
-      return anlas;
+      console.error(`⚠️ Official /user/subscription returned ${response.status}, falling back to mirror`);
     } catch (error) {
-      console.error('💥 Anlas Check Error:', error);
-      throw error;
+      console.error('⚠️ Official /user/subscription failed, falling back to mirror:', error);
     }
+
+    // 镜像站回退
+    const fetchOptions: any = {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${this.apiKey}` },
+    };
+    if (this.agent) fetchOptions.agent = this.agent;
+
+    const response = await fetch(`${this.proxyUrl}/v1/anlas`, fetchOptions);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const data: any = await response.json();
+    const anlas = Number(data.anlas);
+    if (!Number.isFinite(anlas) || anlas < 0) throw new Error('Invalid anlas value');
+    return { anlas, source: 'mirror' as const };
   }
 
   /**
-   * 通过镜像站 API 生成图片，支持 precise_references
+   * 查询 Anlas 点数余额（兼容旧调用）
+   */
+  async checkAnlasBalance(): Promise<number> {
+    const account = await this.checkAccount();
+    return account.anlas;
+  }
+
+  /**
+   * 通过镜像站 API 生成图片
+   * 支持 txt2img、img2img、inpainting、多角色、Vibe Transfer、Precise Reference
    */
   async generateImageViaProxy(params: ImageGenerationParams): Promise<Buffer> {
     const {
-      prompt, model = 'nai-diffusion-4-5-full', negative_prompt = '',
-      width = 832, height = 1216, steps = 28, scale = 5,
+      prompt, model = process.env.NOVELAI_MODEL || 'nai-diffusion-5-full', negative_prompt = '',
+      width = 832, height = 1216, steps, scale,
       sampler = 'k_euler_ancestral', seed,
       n_samples = 1, noise_schedule = 'karras',
       qualityToggle = true, ucPreset = 0, cfg_rescale = 0,
       image_format = 'png',
       precise_references,
       characterPrompts = [],
+      reference_image_multiple,
+      reference_strength_multiple,
+      reference_information_extracted_multiple,
+      normalize_reference_strength_multiple = true,
+      image,
+      mask,
+      strength,
+      noise,
+      add_original_image = true,
+      inpaintImg2ImgStrength = 1,
     } = params;
 
     const generatedSeed = seed ?? Math.floor(Math.random() * 4294967295);
+    const isV5 = model.startsWith('nai-diffusion-5-');
+    // 与直连路径保持一致：V5 默认 CFG≈5 / Steps 23；V4.5 官方默认 CFG=6 / Steps=28
+    const finalSteps = steps ?? (isV5 ? 23 : 28);
+    const finalScale = scale ?? (isV5 ? 5 : 6);
+    const useEulerAncFlags = sampler === 'k_euler_ancestral';
 
     const nai: any = {
-      n_samples, steps, scale, sampler, noise_schedule,
+      mode: 'anime',
+      n_samples, steps: finalSteps, scale: finalScale, sampler,
+      // V5 官方强制 karras
+      noise_schedule: isV5 ? 'karras' : noise_schedule,
       ucPreset, qualityToggle, cfg_rescale,
+      uncond_scale: 1,
       seed: generatedSeed,
       negative_prompt,
     };
 
+    if (useEulerAncFlags) {
+      nai.deliberate_euler_ancestral_bug = false;
+      nai.prefer_brownian = true;
+    }
+    if (typeof params.skip_cfg_above_sigma === 'number') {
+      nai.skip_cfg_above_sigma = params.skip_cfg_above_sigma;
+    }
+    if (params.transparent_background) {
+      nai.straight_alpha = params.straight_alpha ?? true;
+      nai.tag_hint_transparent_background = true;
+    }
+
     if (precise_references) {
       nai.precise_references = precise_references;
+    }
+
+    if (reference_image_multiple) {
+      nai.reference_image_multiple = reference_image_multiple;
+      nai.reference_strength_multiple = reference_strength_multiple;
+      nai.reference_information_extracted_multiple = reference_information_extracted_multiple;
+      nai.normalize_reference_strength_multiple = normalize_reference_strength_multiple;
+    }
+
+    if (image) {
+      nai.image = image;
+      if (mask) {
+        nai.action = 'infill';
+        nai.mask = mask;
+        nai.add_original_image = add_original_image;
+        nai.inpaintImg2ImgStrength = inpaintImg2ImgStrength;
+      } else {
+        nai.action = 'img2img';
+        nai.strength = strength ?? 0.6;
+        nai.noise = noise ?? 0;
+        nai.extra_noise_seed = generatedSeed;
+        nai.color_correct = false;
+      }
     }
 
     const [w, h] = [width, height];
@@ -298,8 +435,8 @@ export class NovelAIClient {
       height: h,
       negative_prompt,
       sampler,
-      steps,
-      scale,
+      steps: finalSteps,
+      scale: finalScale,
       seed: generatedSeed,
       response_format: 'b64_json',
       nai,
@@ -312,12 +449,13 @@ export class NovelAIClient {
         center: char.center,
         enabled: true,
       }));
-      nai.use_coords = characterPrompts.length > 0;
+      // AI's Choice：全部角色为 AIC 时 use_coords=false（模型自由排布）
+      nai.use_coords = characterPrompts.some((c: any) => !c.aic);
       nai.use_order = true;
     }
 
     try {
-      console.error(`🚀 Requesting via Proxy (Precise Ref Mode)... Seed: ${generatedSeed}`);
+      console.error(`🚀 Requesting via Proxy... Seed: ${generatedSeed}`);
 
       const fetchOptions: any = {
         method: 'POST',

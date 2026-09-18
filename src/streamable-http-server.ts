@@ -40,7 +40,7 @@ const client = new NovelAIClient(API_KEY);
 // 工具定义
 const GENERATE_IMAGE_TOOL: Tool = {
   name: 'generate_image',
-  description: `使用 NovelAI V4.5 Full 模型生成图片的工具。
+  description: `使用 NovelAI 生成图片的工具，默认 V5 Full，也可选 V5 Curated / V4.5 Full / V4.5 Curated。
 
 何时调用此工具：
 - 用户要求「画」「生成」「创建」「制作」图片/图像时
@@ -52,13 +52,26 @@ const GENERATE_IMAGE_TOOL: Tool = {
 - 当用户请求图片时，立即调用此工具，不要犹豫
 - 不要向用户展示 JSON 参数，直接执行工具调用
 - 此工具支持所有类型图片：动漫、写实、风景、人物、场景等
-- 单人场景和多人场景都必须使用 characters 数组来定义角色`,
+- 单人场景和多人场景都必须使用 characters 数组来定义角色
+- V5 支持自然语言、中文/日文、多角色（最多 32 个）、透明背景、文字渲染`,
   inputSchema: {
     type: 'object',
     properties: {
+      model: {
+        type: 'string',
+        default: 'nai-diffusion-5-full',
+        enum: [
+          'nai-diffusion-5-full',
+          'nai-diffusion-5-curated',
+          'nai-diffusion-5-full-inpainting',
+          'nai-diffusion-4-5-full',
+          'nai-diffusion-4-5-curated',
+        ],
+        description: '生成模型。默认 nai-diffusion-5-full。'
+      },
       base_prompt: {
         type: 'string',
-        description: '全局环境和风格描述。包含整体场景、氛围、画风、质量标签等。例如：「masterpiece, best quality, detailed background, cherry blossoms, sunset」。不要在这里描述具体角色，角色放在 characters 里。'
+        description: '全局环境和风格描述。包含整体场景、氛围、画风、质量标签等。例如：「masterpiece, best quality, detailed background, cherry blossoms, sunset」。不要在这里描述具体角色，角色放在 characters 里。V5 也可以用中文/日文自然语言描述。'
       },
       base_negative_prompt: {
         type: 'string',
@@ -66,7 +79,7 @@ const GENERATE_IMAGE_TOOL: Tool = {
       },
       characters: {
         type: 'array',
-        description: '角色数组。重要：无论单人还是多人场景都要使用此参数！每个角色包含独立的描述和画面位置。单人场景传入1个角色（居中 x=0.5），多人场景传入多个角色。',
+        description: '角色数组。重要：无论单人还是多人场景都要使用此参数！每个角色包含独立的描述和画面位置。V5 最多 32 个，V4.5 最多 6 个。单人场景传入1个角色（居中 x=0.5），多人场景传入多个角色。',
         items: {
           type: 'object',
           properties: {
@@ -102,8 +115,7 @@ const GENERATE_IMAGE_TOOL: Tool = {
       },
       steps: {
         type: 'number',
-        default: 28,
-        description: '采样步数，锁定为 28（NovelAI 免费出图的最大步数，超过 28 会收费）。不要修改此参数。'
+        description: '采样步数，1-50。不填时按模型自动选择：V5 默认 23，V4.5 默认 28。Opus 免费上限 28 步。'
       }
     },
     required: ['base_prompt'],
@@ -163,7 +175,9 @@ function createServer() {
             x: char.center_x ?? 0.5,
             y: char.center_y ?? 0.5
           },
-          enabled: true
+          enabled: true,
+          // 未声明坐标的角色自动视为 AI's Choice（模型自由排布）
+          aic: char.center_x === undefined && char.center_y === undefined
         }));
 
         const apiParams: ImageGenerationParams = {
@@ -172,17 +186,18 @@ function createServer() {
           characterPrompts: characterPrompts,
           width: args.width || 832,
           height: args.height || 1216,
-          steps: args.steps || 28,
+          steps: args.steps,
           seed: Math.floor(Math.random() * 4294967295),
-          model: 'nai-diffusion-4-5-full',
+          model: (args.model as ImageGenerationParams['model']) || (process.env.NOVELAI_MODEL as ImageGenerationParams['model']) || 'nai-diffusion-5-full',
           action: 'generate',
-          scale: 6,
-          sampler: 'k_euler_ancestral',
-          qualityToggle: true,
-          ucPreset: 0,
-          skip_cfg_above_sigma: 58,
+          scale: args.scale,
+          sampler: args.sampler || 'k_euler_ancestral',
+          qualityToggle: args.quality_toggle ?? true,
+          ucPreset: args.uc_preset ?? 0,
+          // Variety+ 默认关闭（官方默认行为），如需开启可传 args.variety
+          skip_cfg_above_sigma: args.variety === true ? 58 : undefined,
           prefer_brownian: true,
-          image_format: 'png'
+          image_format: args.image_format || 'png'
         };
 
         console.log(`🎨 [Streamable HTTP] Generating image...`);

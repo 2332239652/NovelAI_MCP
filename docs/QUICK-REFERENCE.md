@@ -39,11 +39,21 @@ HTTPS_PROXY="http://proxy:8080" npm run start:http
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
 | `NOVELAI_API_KEY` | ✅ | - | NovelAI API 密钥 |
+| `NOVELAI_MODEL` | ❌ | `nai-diffusion-5-full` | 默认模型 ID |
+| `NOVELAI_USE_PROXY` | ❌ | V5 默认 true | `true` 强制所有生成走镜像代理；`false` 强制 V5 走官方直连 |
+| `NOVELAI_SAVE_DIR` | ❌ | `%USERPROFILE%\Desktop\NovelAI_Output` | 图片保存目录，不设置时使用该默认目录 |
 | `PORT` | ❌ | 3000 | HTTP 服务器端口（仅 HTTP 模式） |
 | `HTTPS_PROXY` | ❌ | - | HTTPS 代理地址（如 http://proxy:8080） |
 | `HTTP_PROXY` | ❌ | - | HTTP 代理地址 |
 
 ## 🎨 工具参数速查
+
+### model（可选，默认 V5 Full）
+```
+默认: "nai-diffusion-5-full"
+可选: "nai-diffusion-5-curated", "nai-diffusion-5-full-inpainting", "nai-diffusion-5-curated-inpainting",
+      "nai-diffusion-4-5-full", "nai-diffusion-4-5-curated"
+```
 
 ### base_prompt（必需）
 全局场景和风格
@@ -84,7 +94,8 @@ HTTPS_PROXY="http://proxy:8080" npm run start:http
 ```
 
 ### steps
-锁定 28（免费限制）
+不填时自动按模型选择：V5 默认 23，V4.5 默认 28。
+Opus 免费上限仍为 28 步。
 
 ## 📍 角色位置速查
 

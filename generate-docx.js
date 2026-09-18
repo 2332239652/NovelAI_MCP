@@ -349,7 +349,7 @@ const doc = new Document({
           ['变量名', '变量值', '说明'],
           [
             ['NOVELAI_API_KEY', 'pst-xxxxxxxxxxxxxxxxxxxxxxxx', '你的 NovelAI API Key（必填）'],
-            ['HTTPS_PROXY', 'http://127.0.0.1:7897', '代理地址（国内网络必填）'],
+            ['HTTPS_PROXY', 'http://127.0.0.1:7890', '代理地址（国内网络必填）'],
             ['NOVELAI_SAVE_DIR', 'C:\\Users\\你的用户名\\Desktop\\NovelAI_Output', '图片自动保存路径（可选）'],
           ]
         ),
@@ -366,8 +366,8 @@ const doc = new Document({
         heading3('代理配置'),
         para('NovelAI 的 API 服务器在国外（api.novelai.net），国内直连可能会超时。需要配置代理：'),
         bullet('如果你使用 Clash Verge：打开软件，在设置中查看「系统代理」地址'),
-        bullet('通常是 http://127.0.0.1:7897 或 http://127.0.0.1:7890'),
-        bullet('在 MCP 环境变量中填入 HTTPS_PROXY=http://127.0.0.1:7897'),
+        bullet('通常是 http://127.0.0.1:7890（Clash 默认端口，以软件内显示为准）'),
+        bullet('在 MCP 环境变量中填入 HTTPS_PROXY=http://127.0.0.1:7890'),
         note('如果代理设置错误，会出现 "request to https://image.novelai.net/ai/generate-image failed" 的错误。', 'warning'),
 
         // ===== 五、保存配置并启用 =====

@@ -21,7 +21,7 @@
 
 ## ✨ 特性
 
-- 🎨 **最新模型支持** - 完整支持 NAI Diffusion V4.5 Full
+- 🎨 **最新模型支持** - 支持 NAI Diffusion V5 Full / V5 Curated，并保留 V4.5 Full / V4.5 Curated
 - 🚀 **双传输模式** - Stdio、HTTP SSE、Streamable HTTP
 - 🎭 **多角色支持** - V4+ 角色定位和独立提示词系统
 - 📝 **中文优化** - 工具描述使用中文，AI 更准确识别调用时机
@@ -119,22 +119,28 @@ npm run start:sse
 
 ## 🎯 支持的模型
 
-当前版本专注于最新的 NovelAI V4.5 模型：
+当前默认使用最新的 NovelAI V5 Full，同时支持 V5 Curated 与 V4.5：
 
 | 模型 | 说明 |
 |------|------|
-| `nai-diffusion-4-5-full` | NAI Diffusion V4.5 Full（唯一支持的模型） |
+| `nai-diffusion-5-full` | NAI Diffusion V5 Full（默认，最新最强） |
+| `nai-diffusion-5-curated` | NAI Diffusion V5 Curated（精选模型） |
+| `nai-diffusion-5-full-inpainting` | V5 Full 局部重绘模型 |
+| `nai-diffusion-5-curated-inpainting` | V5 Curated 局部重绘模型 |
+| `nai-diffusion-4-5-full` | NAI Diffusion V4.5 Full |
+| `nai-diffusion-4-5-curated` | NAI Diffusion V4.5 Curated |
 
 
 ## 🔧 核心参数
 
 | 参数 | 类型 | 说明 |
 |------|------|------|
+| `model` | string | 模型 ID，默认 `nai-diffusion-5-full`，可选 `nai-diffusion-5-curated`、`nai-diffusion-4-5-full` 等 |
 | `base_prompt` | string | 全局场景和风格描述 |
 | `base_negative_prompt` | string | 全局负面提示词 |
-| `characters` | array | 角色数组（单人/多人都要用） |
+| `characters` | array | 角色数组（V5 最多 32 个，V4.5 最多 6 个） |
 | `width` / `height` | number | 图片尺寸（必须是 64 的倍数） |
-| `steps` | number | 采样步数（锁定 28，免费限制） |
+| `steps` | number | 采样步数；不填时 V5 默认 23，V4.5 默认 28 |
 
 完整参数列表请查看 [快速参考](./docs/QUICK-REFERENCE.md)。
 
@@ -155,6 +161,9 @@ npm run start:sse
 | 变量 | 必需 | 默认值 | 说明 |
 |------|------|--------|------|
 | `NOVELAI_API_KEY` | ✅ | - | NovelAI API 密钥 |
+| `NOVELAI_MODEL` | ❌ | `nai-diffusion-5-full` | 默认模型 ID，调用方未指定 model 时生效 |
+| `NOVELAI_USE_PROXY` | ❌ | V5 默认 true | `true` 强制所有生成走镜像代理；`false` 强制 V5 也走官方直连；不设置时 V5 走代理、V4.5 走官方 |
+| `NOVELAI_SAVE_DIR` | ❌ | `%USERPROFILE%\Desktop\NovelAI_Output` | 图片保存目录，不设置时使用该默认目录 |
 | `PORT` | ❌ | 3000 | HTTP 服务器端口（仅 HTTP 模式） |
 | `HTTPS_PROXY` | ❌ | - | HTTPS 代理地址 |
 | `HTTP_PROXY` | ❌ | - | HTTP 代理地址 |

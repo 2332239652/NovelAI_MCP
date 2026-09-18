@@ -21,7 +21,7 @@ English | [简体中文](./README.md)
 
 ## ✨ Features
 
-- 🎨 **Latest Model Support** - Full support for NAI Diffusion V4.5 Full
+- 🎨 **Latest Model Support** - Support for NAI Diffusion V5 Full / V5 Curated, plus V4.5 Full / V4.5 Curated
 - 🚀 **Dual Transport Modes** - Stdio (Claude Desktop) and HTTP SSE (LobeChat/Dify)
 - 🎭 **Multi-Character Support** - V4+ character positioning with individual prompts
 - ⚡ **Advanced Sampling** - 7 samplers, 4 noise schedules, Brownian noise
@@ -122,13 +122,16 @@ Configure in client:
 
 ## 🎯 Supported Models
 
-Current version focuses on the latest NovelAI V4.5 model:
+The current version defaults to the latest NovelAI V5 Full, with V5 Curated and V4.5 also supported:
 
 | Model | Description |
 |------|------|
-| `nai-diffusion-4-5-full` | NAI Diffusion V4.5 Full (Only supported model) |
-
-> **Note**: This project is specifically optimized for V4.5 Full with complete feature support (Auto SMEA, Brownian noise, multi-character positioning, etc.). For other models, please refer to earlier versions or submit an Issue.
+| `nai-diffusion-5-full` | NAI Diffusion V5 Full (default, newest & strongest) |
+| `nai-diffusion-5-curated` | NAI Diffusion V5 Curated (curated subset) |
+| `nai-diffusion-5-full-inpainting` | V5 Full inpainting model |
+| `nai-diffusion-5-curated-inpainting` | V5 Curated inpainting model |
+| `nai-diffusion-4-5-full` | NAI Diffusion V4.5 Full |
+| `nai-diffusion-4-5-curated` | NAI Diffusion V4.5 Curated |
 
 ## 💡 Usage Examples
 
@@ -166,11 +169,12 @@ See [Examples Documentation](./docs/EXAMPLES.md) for more.
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
+| `model` | string | Model ID, default `nai-diffusion-5-full`, also accepts `nai-diffusion-5-curated`, `nai-diffusion-4-5-full`, etc. |
 | `base_prompt` | string | Global scene and style description |
 | `base_negative_prompt` | string | Global negative prompt |
-| `characters` | array | Character array (required for both single/multi) |
+| `characters` | array | Character array (V5 up to 32, V4.5 up to 6) |
 | `width` / `height` | number | Image size (must be multiple of 64) |
-| `steps` | number | Sampling steps (locked to 28, free tier limit) |
+| `steps` | number | Sampling steps; defaults to 23 for V5, 28 for V4.5 when omitted |
 
 See [Quick Reference](./docs/QUICK-REFERENCE.md) for complete parameter list.
 
@@ -191,6 +195,9 @@ See [Quick Reference](./docs/QUICK-REFERENCE.md) for complete parameter list.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `NOVELAI_API_KEY` | ✅ | - | NovelAI API key |
+| `NOVELAI_MODEL` | ❌ | `nai-diffusion-5-full` | Default model ID when caller does not specify `model` |
+| `NOVELAI_USE_PROXY` | ❌ | V5 defaults to true | `true` forces all generations through the mirror proxy; `false` forces V5 direct to official API; when unset, V5 uses proxy and V4.5 uses direct |
+| `NOVELAI_SAVE_DIR` | ❌ | `%USERPROFILE%\Desktop\NovelAI_Output` | Image save directory; used when the environment variable is not set |
 | `PORT` | ❌ | 3000 | HTTP server port (HTTP modes only) |
 | `HTTPS_PROXY` | ❌ | - | HTTPS proxy address |
 | `HTTP_PROXY` | ❌ | - | HTTP proxy address |
